@@ -1,110 +1,153 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# JCB & Tipper Fleet Management
 
-# Sample Credentials (driver-only mobile app)
+Android mobile application for managing JCB, Tipper, and Tata Ace vehicles, drivers, daily work entries, and expenses.
 
-| Role   | Username | Password |
-| ------ | -------- | -------- |
-| Driver | driver1  | 123456   |
-| Driver | driver2  | 123456   |
-| Driver | driver3  | 123456   |
+**Module 1 implemented:** Authentication & User Management (Admin + Driver roles).
 
-The mobile app is exclusively for drivers — Admin access is handled by a separate web dashboard (built separately).
+## Project layout
 
-# Getting Started
-
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
-## Step 1: Start Metro
-
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
-
-To start the Metro dev server, run the following command from the root of your React Native project:
-
-```sh
-& "$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe" -avd Pixel_8 -no-snapshot -window-size 400x800
+```
+Fleet_Management/
+├── App/          # React Native CLI app (JavaScript in .tsx files)
+│   └── src/
+│       ├── features/auth/     # Login, auth context, auth service
+│       ├── navigation/        # Auth / App / Admin / Driver navigators
+│       ├── services/api.tsx   # Axios client + interceptors
+│       ├── utils/tokenStorage.tsx  # Secure Keychain JWT storage
+│       ├── screens/driver/    # Driver work screens
+│       └── components/UI.js   # Shared UI kit
+└── backend/      # Node.js + Express + MongoDB API (ESM, "type": "module")
+    ├── api/           # API contract validation (authValidation)
+    ├── service/       # Business logic layer (AuthService, BaseService)
+    ├── controller/    # authController (HTTP only)
+    ├── models/        # User
+    ├── routes/        # authRoutes
+    ├── middleware/    # authMiddleware, roleMiddleware
+    ├── utility/       # env, db, token, errors, responses
+    ├── scripts/       # createAdmin
+    ├── app.js
+    └── server.js
 ```
 
+## Prerequisites
+
+- Node.js >= 22.11
+- MongoDB running locally (or a connection string)
+- Android SDK + emulator (for the mobile app)
+
+## Backend setup
+
 ```sh
-# Using npm
+cd backend
+npm install
+
+# Configure environment
+copy .env.example .env
+# Edit .env — set MONGODB_URI, JWT_SECRET, ADMIN_USERNAME, ADMIN_PASSWORD
+
+# Create the initial admin account (reads ADMIN_* from .env)
+npm run create-admin
+
+# Start API (default http://localhost:5000)
+npm start
+# or with auto-restart:
+npm run dev
+```
+
+### Environment variables (backend/.env)
+
+| Variable | Description |
+|---|---|
+| `PORT` | API port (e.g. `5000`) |
+| `MONGODB_URI` | MongoDB connection string |
+| `JWT_SECRET` | Strong random secret for signing JWTs |
+| `JWT_EXPIRES_IN` | Token lifetime (e.g. `12h`) |
+| `ADMIN_USERNAME` | Initial admin username |
+| `ADMIN_PASSWORD` | Initial admin password (min 8 chars) |
+
+Never commit `.env`.
+
+## Mobile app setup
+
+```sh
+cd App
+npm install
+
+# Start Metro
 npm start
 
-# OR using Yarn
-yarn start
-```
-
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
+# In another terminal — build & run on Android emulator
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
+The app talks to the backend at `http://10.0.2.2:5000/api` (Android emulator → host machine).
+For a physical device, change `API_BASE_URL` in `src/services/api.tsx` to your computer's LAN IP.
+Cleartext HTTP is enabled in the debug Android build (`manifestPlaceholders` in `android/app/build.gradle`).
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+### Login
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+| Role | Username | Password |
+|---|---|---|
+| Admin | `admin` | value of `ADMIN_PASSWORD` in `backend/.env` (dev: `ChangeMe@12345`) |
+| Driver (demo) | `driver1` | `Driver@123` |
+
+The demo driver has a placeholder `driverId` until Module 2 (driver records) exists. Create real driver accounts with `POST /api/auth/create-driver` once drivers exist.
+
+## API reference (Module 1)
+
+Base URL: `http://localhost:5000/api`
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| POST | `/auth/login` | Public | Login → `{ token, user }` |
+| GET | `/auth/me` | Bearer | Current user profile |
+| POST | `/auth/logout` | Bearer | Invalidate current session server-side |
+| POST | `/auth/create-driver` | Admin | Create driver login account |
+| PUT | `/auth/reset-password/:userId` | Admin | Reset driver password |
+| PATCH | `/auth/status/:userId` | Admin | Activate / deactivate driver |
+
+### Response envelope
+
+Success:
+```json
+{ "success": true, "message": "Login successful", "data": {} }
+```
+
+Error:
+```json
+{ "success": false, "message": "Invalid credentials" }
+```
+
+## Tests
 
 ```sh
-bundle install
+# Frontend (Jest)
+cd App
+npm test
+
+# Lint / typecheck
+cd App
+npm run lint
+npm run typecheck
 ```
 
-Then, and every time you update your native dependencies, run:
+## Security notes
 
-```sh
-bundle exec pod install
-```
+- Passwords are hashed with bcryptjs (cost 12).
+- JWTs embed a `tokenVersion`; logout, deactivation, and password reset bump it so copied tokens die server-side.
+- Tokens are stored in Android Keychain / iOS Keychain via `react-native-keychain` — not plain AsyncStorage.
+- Role checks run on the backend (`roleMiddleware`); the mobile UI never trusts client-supplied roles.
+- Drivers cannot see revenue, profit, billing, or other drivers' data (enforced by API design; financial modules are future work).
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+## Scripts summary
 
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+| Where | Command | Purpose |
+|---|---|---|
+| `backend/` | `npm start` | Run API |
+| `backend/` | `npm run create-admin` | Seed admin user |
+| `backend/` | `npm run dev` | Run API with auto-restart |
+| `App/` | `npm start` | Metro bundler |
+| `App/` | `npm run android` | Build & run Android app |
+| `App/` | `npm test` | Frontend tests |
+| `App/` | `npm run lint` | ESLint |
+| `App/` | `npm run typecheck` | TypeScript check |

@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { translations } from '../i18n/translations';
 import { workEntries } from '../data/mockData';
 
 import WorkEntryScreen from '../screens/driver/WorkEntryScreen';
@@ -28,26 +27,19 @@ const COLORS = {
 };
 
 const driverTabs = [
-  { key: 'workEntry', icon: 'create-outline', label: 'workEntry' },
-  { key: 'myEntries', icon: 'receipt-outline', label: 'myEntries' },
-  { key: 'profile', icon: 'person-circle-outline', label: 'profile' },
+  { key: 'workEntry', icon: 'create-outline', label: 'Work entry' },
+  { key: 'myEntries', icon: 'receipt-outline', label: 'My entries' },
+  { key: 'profile', icon: 'person-circle-outline', label: 'Profile' },
 ];
 
 export default function MainApp({ session, onLogout }) {
   const [screen, setScreen] = useState('workEntry');
-  const [language, setLanguage] = useState(session?.language || 'en');
 
   const [entries, setEntries] = useState(() =>
     workEntries.filter(
       entry => entry.driverId === session?.driverId,
     ),
   );
-
-  const t = (key, fallback = '') =>
-    translations[language]?.[key] ||
-    translations.en?.[key] ||
-    fallback ||
-    key;
 
   const addEntry = entry => {
     setEntries(current => [
@@ -62,16 +54,11 @@ export default function MainApp({ session, onLogout }) {
     ]);
   };
 
-  const toggleLanguage = () => {
-    setLanguage(current => (current === 'en' ? 'ta' : 'en'));
-  };
-
   const renderScreen = () => {
     switch (screen) {
       case 'myEntries':
         return (
           <MyEntriesScreen
-            t={t}
             session={session}
             entries={entries}
           />
@@ -81,9 +68,6 @@ export default function MainApp({ session, onLogout }) {
         return (
           <ProfileScreen
             session={session}
-            t={t}
-            language={language}
-            onToggleLanguage={toggleLanguage}
             onLogout={onLogout}
           />
         );
@@ -91,7 +75,6 @@ export default function MainApp({ session, onLogout }) {
       default:
         return (
           <WorkEntryScreen
-            t={t}
             session={session}
             onSave={addEntry}
           />
@@ -114,25 +97,9 @@ export default function MainApp({ session, onLogout }) {
         <View style={styles.brandCopy}>
           <Text style={styles.brand}>Fleet Manager</Text>
           <Text style={styles.subtitle}>
-            {t('driverWorkspace', 'Driver workspace')}
+            Driver workspace
           </Text>
         </View>
-
-        <TouchableOpacity
-          style={styles.languageButton}
-          onPress={toggleLanguage}
-          accessibilityRole="button"
-          accessibilityLabel="Change language"
-        >
-          <Ionicons
-            name="language-outline"
-            size={16}
-            color={COLORS.primary}
-          />
-          <Text style={styles.languageText}>
-            {language === 'en' ? 'தமிழ்' : 'EN'}
-          </Text>
-        </TouchableOpacity>
       </View>
 
       {/* Current screen */}
@@ -174,7 +141,7 @@ export default function MainApp({ session, onLogout }) {
                   active && styles.tabLabelActive,
                 ]}
               >
-                {t(tab.label)}
+                {tab.label}
               </Text>
 
               {active && <View style={styles.activeIndicator} />}
@@ -225,22 +192,6 @@ const styles = StyleSheet.create({
     color: COLORS.secondary,
     fontSize: 11,
     marginTop: 3,
-  },
-  languageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 11,
-    paddingVertical: 9,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-  },
-  languageText: {
-    color: COLORS.primary,
-    fontSize: 12,
-    fontWeight: '800',
   },
 
   // Content

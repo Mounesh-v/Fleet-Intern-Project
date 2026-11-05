@@ -13,7 +13,7 @@ const today = () => {
 };
 const isAmount = value => value.trim() === '' || /^\d+(\.\d+)?$/.test(value.trim());
 
-export default function WorkEntryScreen({ t, session, onSave }) {
+export default function WorkEntryScreen({ session, onSave }) {
   const [date, setDate] = useState(today());
   const [vehicle, setVehicle] = useState(
     () => session?.vehicle?.split(' · ')[0] || '5783',
@@ -81,7 +81,7 @@ export default function WorkEntryScreen({ t, session, onSave }) {
   const save = () => {
     const problem = validate();
     if (problem) {
-      Alert.alert(t('workEntry'), problem);
+      Alert.alert('Work entry', problem);
       return;
     }
 
@@ -128,11 +128,11 @@ export default function WorkEntryScreen({ t, session, onSave }) {
   return (
     <Screen>
       <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <Text style={styles.heading}>{t('workEntry')}</Text>
+        <Text style={styles.heading}>Work entry</Text>
         <Text style={styles.sub}>Record today's work and expenses.</Text>
 
         <Card style={styles.driverCard}>
-          <Text style={styles.driverLabel}>{t('driver')}</Text>
+          <Text style={styles.driverLabel}>Driver</Text>
           <Text style={styles.driverName}>{session?.name || 'Driver'}</Text>
           <Text style={styles.driverMeta}>
             {session?.employeeId || session?.username || ''}
@@ -141,9 +141,9 @@ export default function WorkEntryScreen({ t, session, onSave }) {
         </Card>
 
         <SectionTitle title="Work details" />
-        <Field label={t('date')} value={date} onChangeText={setDate} placeholder="DD/MM/YYYY" />
+        <Field label="Date" value={date} onChangeText={setDate} placeholder="DD/MM/YYYY" />
 
-        <Text style={styles.label}>{t('vehicle')}</Text>
+        <Text style={styles.label}>Vehicle</Text>
         <View style={styles.chipRow}>
           {vehicles.filter(v => v.status === 'Active').map(v => (
             <Chip
@@ -155,31 +155,31 @@ export default function WorkEntryScreen({ t, session, onSave }) {
           ))}
         </View>
 
-        <Field label={t('customerName')} value={customer} onChangeText={setCustomer} />
-        <Field label={t('mobile')} value={mobile} onChangeText={setMobile} keyboardType="phone-pad" />
-        <Field label={t('location')} value={location} onChangeText={setLocation} />
+        <Field label="Customer name" value={customer} onChangeText={setCustomer} />
+        <Field label="Mobile number" value={mobile} onChangeText={setMobile} keyboardType="phone-pad" />
+        <Field label="Work location" value={location} onChangeText={setLocation} />
 
         {isJcb ? (
-          <Field label={`${t('hours')} (e.g. 6.5)`} value={hours} onChangeText={setHours} keyboardType="decimal-pad" />
+          <Field label={`Working hours (e.g. 6.5)`} value={hours} onChangeText={setHours} keyboardType="decimal-pad" />
         ) : (
           <>
-            <Field label={t('loads')} value={loads} onChangeText={setLoads} keyboardType="number-pad" />
-            <Text style={styles.label}>{t('material')}</Text>
+            <Field label="Number of loads" value={loads} onChangeText={setLoads} keyboardType="number-pad" />
+            <Text style={styles.label}>Material</Text>
             <View style={styles.chipRow}>
               {['M-sand', 'P-sand', 'Soil', 'Aggregate', 'Other'].map(m => (
                 <Chip key={m} label={m} selected={material === m} onPress={() => setMaterial(m)} />
               ))}
             </View>
-            <Field label={t('quarry')} value={quarry} onChangeText={setQuarry} />
+            <Field label="Source quarry (optional)" value={quarry} onChangeText={setQuarry} />
           </>
         )}
 
-        <SectionTitle title={t('expensesLabel')} />
-        <Field label={t('dieselAmount')} value={dieselAmount} onChangeText={setDieselAmount} keyboardType="decimal-pad" />
-        <Field label={t('dieselLitres')} value={dieselLitres} onChangeText={setDieselLitres} keyboardType="decimal-pad" />
-        <Field label={t('otherExpenses')} value={otherExpenses} onChangeText={setOtherExpenses} keyboardType="decimal-pad" />
+        <SectionTitle title="Expenses" />
+        <Field label="Diesel amount (₹)" value={dieselAmount} onChangeText={setDieselAmount} keyboardType="decimal-pad" />
+        <Field label="Diesel litres" value={dieselLitres} onChangeText={setDieselLitres} keyboardType="decimal-pad" />
+        <Field label="Other expenses (₹)" value={otherExpenses} onChangeText={setOtherExpenses} keyboardType="decimal-pad" />
 
-        <Text style={styles.label}>{t('expenseCategory')}</Text>
+        <Text style={styles.label}>Expense category</Text>
         <View style={styles.chipRow}>
           {EXPENSE_CATEGORIES.map(cat => (
             <Chip
@@ -192,17 +192,17 @@ export default function WorkEntryScreen({ t, session, onSave }) {
         </View>
 
         <Field
-          label={t('expenseDescription')}
+          label="Expense description"
           value={expenseDescription}
           onChangeText={setExpenseDescription}
           placeholder="Short note about this expense"
         />
 
-        <SectionTitle title={t('notes')} />
-        <Field label={t('notes')} value={notes} onChangeText={setNotes} multiline />
+        <SectionTitle title="Notes" />
+        <Field label="Notes" value={notes} onChangeText={setNotes} multiline />
 
-        <PrimaryButton title={t('saveEntry')} onPress={save} />
-        <Text style={styles.foot}>{t('demoNotice')}</Text>
+        <PrimaryButton title="Save work entry" onPress={save} />
+        <Text style={styles.foot}>Demo UI • Data is not synced to a server</Text>
       </ScrollView>
     </Screen>
   );

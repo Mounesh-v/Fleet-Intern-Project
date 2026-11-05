@@ -25,13 +25,7 @@ const COLORS = {
   danger: '#B93830',
 };
 
-export default function ProfileScreen({
-  session,
-  t,
-  language,
-  onToggleLanguage,
-  onLogout,
-}) {
+export default function ProfileScreen({ session, onLogout }) {
   const name = session?.name || 'Driver';
   const username = session?.username || '';
   const initial = (name || username || 'D')
@@ -46,13 +40,13 @@ export default function ProfileScreen({
       >
         <View style={styles.pageHeader}>
           <Text style={styles.eyebrow}>
-            {t('driverPortal', 'DRIVER PORTAL')}
+            DRIVER PORTAL
           </Text>
           <Text style={styles.heading}>
-            {t('profile', 'My Profile')}
+            My Profile
           </Text>
           <Text style={styles.subtitle}>
-            {t('profileSubtitle', 'Your account and preferences')}
+            Your account and preferences
           </Text>
         </View>
 
@@ -72,7 +66,7 @@ export default function ProfileScreen({
               <View style={styles.driverBadge}>
                 <View style={styles.badgeDot} />
                 <Text style={styles.badgeText}>
-                  {t('driver', 'Driver')}
+                  Driver
                 </Text>
               </View>
             </View>
@@ -80,12 +74,12 @@ export default function ProfileScreen({
         </Card>
 
         {/* Driver information */}
-        <SectionTitle title={t('driverInfo', 'Driver information')} />
+        <SectionTitle title="Driver information" />
 
         <View style={styles.infoCard}>
           <InfoRow
             icon="id-card-outline"
-            label={t('employeeId', 'Employee ID')}
+            label="Employee ID"
             value={session?.employeeId || '—'}
           />
 
@@ -93,52 +87,13 @@ export default function ProfileScreen({
 
           <InfoRow
             icon="car-outline"
-            label={t('assignedVehicle', 'Assigned vehicle')}
+            label="Assigned vehicle"
             value={session?.vehicle || '—'}
           />
         </View>
 
-        {/* Preferences */}
-        <SectionTitle title={t('preferences', 'Preferences')} />
-
-        <TouchableOpacity
-          style={styles.actionRow}
-          onPress={onToggleLanguage}
-          accessibilityRole="button"
-          accessibilityLabel={t('languageLabel', 'App language')}
-          activeOpacity={0.75}
-        >
-          <View style={styles.actionIcon}>
-            <Ionicons
-              name="language-outline"
-              size={21}
-              color={COLORS.primary}
-            />
-          </View>
-
-          <View style={styles.actionCopy}>
-            <Text style={styles.actionTitle}>
-              {t('languageLabel', 'App language')}
-            </Text>
-            <Text style={styles.actionSubtitle}>
-              {language === 'en' ? 'English' : 'தமிழ்'}
-            </Text>
-          </View>
-
-          <View style={styles.languageValue}>
-            <Text style={styles.languageValueText}>
-              {language === 'en' ? 'தமிழ்' : 'EN'}
-            </Text>
-            <Ionicons
-              name="chevron-forward"
-              size={16}
-              color={COLORS.secondary}
-            />
-          </View>
-        </TouchableOpacity>
-
         {/* Account */}
-        <SectionTitle title={t('account', 'Account')} />
+        <SectionTitle title="Account" />
 
         <TouchableOpacity
           style={styles.actionRow}
@@ -156,10 +111,10 @@ export default function ProfileScreen({
 
           <View style={styles.actionCopy}>
             <Text style={styles.logoutTitle}>
-              {t('signOut', 'Sign out')}
+              Sign out
             </Text>
             <Text style={styles.actionSubtitle}>
-              {t('returnToLogin', 'Return to the login screen')}
+              Return to the login screen
             </Text>
           </View>
 
@@ -340,37 +295,13 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginBottom: 11,
   },
-  actionIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: COLORS.softYellow,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
   actionCopy: {
     flex: 1,
-  },
-  actionTitle: {
-    color: COLORS.primary,
-    fontSize: 13,
-    fontWeight: '800',
   },
   actionSubtitle: {
     color: COLORS.secondary,
     fontSize: 11,
     marginTop: 5,
-  },
-  languageValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  languageValueText: {
-    color: COLORS.primary,
-    fontSize: 11,
-    fontWeight: '800',
   },
   logoutIcon: {
     width: 42,

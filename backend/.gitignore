@@ -1,0 +1,16 @@
+# Environment
+.env
+.env.local
+
+# Dependencies
+node_modules/
+
+# Logs
+npm-debug.log*
+*.log
+
+# Coverage
+coverage/
+
+# OS
+.DS_Store

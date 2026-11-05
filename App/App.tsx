@@ -1,37 +1,16 @@
-
-import React, { useState } from 'react';
+import React from 'react';
+import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Alert, StatusBar } from 'react-native';
-import LoginScreen from './src/screens/auth/LoginScreen';
-import MainApp from './src/navigation/MainApp';
+import { AuthProvider } from './src/features/auth/context/authContext';
+import AppNavigator from './src/navigation/AppNavigator';
 
 export default function App() {
-  const [session, setSession] = useState(null);
-
-  const handleForgotPassword = () => {
-    Alert.alert(
-      'Reset access',
-      'Ask your dispatcher to reset your Fleet Manager password.',
-    );
-  };
-
   return (
     <SafeAreaProvider>
-      <StatusBar
-        barStyle="dark-content"
-      />
-
-      {session ? (
-        <MainApp
-          session={session}
-          onLogout={() => setSession(null)}
-        />
-      ) : (
-        <LoginScreen
-          onLogin={setSession}
-          onForgotPassword={handleForgotPassword}
-        />
-      )}
+      <AuthProvider>
+        <StatusBar barStyle="dark-content" />
+        <AppNavigator />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

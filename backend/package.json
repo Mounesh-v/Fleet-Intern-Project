@@ -1,0 +1,25 @@
+{
+  "name": "fleet-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "JCB & Tipper Fleet Management API - Auth + Fleet Admin modules",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "create-admin": "node scripts/createAdmin.js",
+    "seed": "node scripts/seedFleet.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.7.0"
+  },
+  "engines": {
+    "node": ">= 22.11.0"
+  }
+}

@@ -48,7 +48,7 @@ function normalizeDate(value) {
   return raw;
 }
 
-export default function MyEntriesScreen({ t, session, entries }) {
+export default function MyEntriesScreen({ session, entries }) {
   const [dateFilter, setDateFilter] = useState('');
   const [openId, setOpenId] = useState(null);
 
@@ -73,15 +73,15 @@ export default function MyEntriesScreen({ t, session, entries }) {
     .map((entry, index) => ({
       ...entry,
       id: entry.id || `entry-${index}`,
-      customer: entry.customer || t('customer', 'Customer'),
-      vehicle: entry.vehicle || t('vehicle', 'Vehicle'),
-      location: entry.location || t('location', 'Location'),
-      date: entry.date || t('unknownDate', 'Date unavailable'),
+      customer: entry.customer || 'Customer',
+      vehicle: entry.vehicle || 'Vehicle',
+      location: entry.location || 'Location',
+      date: entry.date || 'Date unavailable',
       work: entry.hours
-        ? `${entry.hours} ${t('hours', 'hours')}`
+        ? `${entry.hours} hours`
         : entry.loads
-        ? `${entry.loads} ${t('loads', 'loads')}`
-        : t('workRecorded', 'Work recorded'),
+        ? `${entry.loads} loads`
+        : 'Work recorded',
     }));
 
   return (
@@ -95,15 +95,15 @@ export default function MyEntriesScreen({ t, session, entries }) {
         <View style={styles.pageHeader}>
           <View style={styles.headingCopy}>
             <Text style={styles.eyebrow}>
-              {t('driverPortal', 'DRIVER PORTAL')}
+              DRIVER PORTAL
             </Text>
 
             <Text style={styles.heading}>
-              {t('myEntries', 'My Entries')}
+              My Entries
             </Text>
 
             <Text style={styles.subtitle}>
-              {t('entriesSubtitle', 'Review your recorded work.')}
+              Review your recorded work.
             </Text>
           </View>
 
@@ -128,10 +128,10 @@ export default function MyEntriesScreen({ t, session, entries }) {
 
           <View style={styles.summaryCopy}>
             <Text style={styles.summaryTitle}>
-              {rows.length} {t('records', 'records')}
+              {rows.length} records
             </Text>
             <Text style={styles.summarySubtitle}>
-              {t('yourWorkHistory', 'Your work history')}
+              Your work history
             </Text>
           </View>
         </View>
@@ -139,7 +139,7 @@ export default function MyEntriesScreen({ t, session, entries }) {
         {/* Date filter */}
         <View style={styles.filterSection}>
           <Text style={styles.sectionLabel}>
-            {t('filterByDate', 'Filter by date')}
+            Filter by date
           </Text>
 
           <View style={styles.filterRow}>
@@ -148,7 +148,7 @@ export default function MyEntriesScreen({ t, session, entries }) {
                 label=""
                 value={dateFilter}
                 onChangeText={setDateFilter}
-                placeholder={t('datePlaceholder', 'DD/MM/YYYY')}
+                placeholder="DD/MM/YYYY"
               />
             </View>
 
@@ -163,7 +163,7 @@ export default function MyEntriesScreen({ t, session, entries }) {
                 color={COLORS.primary}
               />
               <Text style={styles.clearText}>
-                {t('allEntries', 'All')}
+                All
               </Text>
             </TouchableOpacity>
           </View>
@@ -172,7 +172,7 @@ export default function MyEntriesScreen({ t, session, entries }) {
         {/* Entries list */}
         <View style={styles.listHeader}>
           <SectionTitle
-            title={t('workHistory', 'Work history')}
+            title="Work history"
           />
 
           <Text style={styles.countText}>
@@ -225,7 +225,7 @@ export default function MyEntriesScreen({ t, session, entries }) {
                     <View style={styles.status}>
                       <View style={styles.statusDot} />
                       <Text style={styles.statusText}>
-                        {t('recorded', 'Saved')}
+                        Saved
                       </Text>
                     </View>
                   </View>
@@ -282,28 +282,28 @@ export default function MyEntriesScreen({ t, session, entries }) {
                   {expanded && (
                     <View style={styles.details}>
                       <Text style={styles.detailsHeading}>
-                        {t('details', 'Entry details')}
+                        Entry details
                       </Text>
 
                       <Detail
-                        label={t('mobile', 'Mobile')}
+                        label="Mobile"
                         value={entry.mobile}
                       />
 
                       <Detail
-                        label={t('material', 'Material')}
+                        label="Material"
                         value={entry.material}
                       />
 
                       <Detail
-                        label={t('quarry', 'Quarry')}
+                        label="Quarry"
                         value={entry.quarry}
                       />
 
                       {(entry.dieselAmount != null &&
                         entry.dieselAmount !== '') && (
                         <Detail
-                          label={t('dieselAmount', 'Diesel amount')}
+                          label="Diesel amount"
                           value={`₹${entry.dieselAmount}${
                             entry.dieselLitres
                               ? ` · ${entry.dieselLitres} L`
@@ -315,7 +315,7 @@ export default function MyEntriesScreen({ t, session, entries }) {
                       {(entry.otherExpenses != null &&
                         entry.otherExpenses !== '') && (
                         <Detail
-                          label={t('otherExpenses', 'Other expenses')}
+                          label="Other expenses"
                           value={`₹${entry.otherExpenses}${
                             entry.expenseCategory
                               ? ` · ${entry.expenseCategory}`
@@ -325,12 +325,12 @@ export default function MyEntriesScreen({ t, session, entries }) {
                       )}
 
                       <Detail
-                        label={t('description', 'Description')}
+                        label="Description"
                         value={entry.expenseDescription}
                       />
 
                       <Detail
-                        label={t('notes', 'Notes')}
+                        label="Notes"
                         value={entry.notes}
                       />
                     </View>
@@ -342,11 +342,8 @@ export default function MyEntriesScreen({ t, session, entries }) {
         ) : (
           <View style={styles.emptyContainer}>
             <EmptyState
-              title={t('noEntries', 'No work entries found')}
-              subtitle={t(
-                'noEntriesSubtitle',
-                'Your saved work records will appear here.',
-              )}
+              title="No work entries found"
+              subtitle="Your saved work records will appear here."
             />
           </View>
         )}
@@ -356,8 +353,8 @@ export default function MyEntriesScreen({ t, session, entries }) {
             name="lock-closed-outline"
             size={12}
             color={COLORS.muted}
-          />{' '}
-          {t('driverOnly', 'Only your work records are shown here.')}
+          />          {' '}
+          Only your work records are shown here.
         </Text>
       </ScrollView>
     </Screen>
