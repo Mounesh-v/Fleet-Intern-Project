@@ -71,8 +71,8 @@ export function resetDriverPassword(userId, password) {
 
 // --- Dashboard ----------------------------------------------------------
 
-export function fetchDashboard() {
-  return get('/admin/dashboard', 'Could not load dashboard stats.');
+export function fetchDashboard(query = '') {
+  return get(`/admin/dashboard${query}`, 'Could not load dashboard stats.');
 }
 
 // --- Vehicles -----------------------------------------------------------
@@ -118,6 +118,18 @@ export function fetchWorkEntries(query = '') {
   return get(`/admin/work-entries${query}`, 'Could not load work entries.');
 }
 
+export function removeWorkEntry(id) {
+  return del(`/admin/work-entries/${id}`, 'Could not delete work entry.');
+}
+
+export function removeWorkEntries(ids) {
+  return post(
+    '/admin/work-entries/bulk-delete',
+    { ids },
+    'Could not delete selected entries.',
+  );
+}
+
 export function setWorkEntryStatus(id, status) {
   return patch(
     `/admin/work-entries/${id}/status`,
@@ -132,16 +144,60 @@ export function fetchCustomers() {
   return get('/admin/customers', 'Could not load customers.');
 }
 
+export function createCustomer(body) {
+  return post('/admin/customers', body, 'Could not create the customer.');
+}
+
+export function updateCustomer(id, body) {
+  return put(`/admin/customers/${id}`, body, 'Could not update the customer.');
+}
+
+export function removeCustomer(id) {
+  return del(`/admin/customers/${id}`, 'Could not delete the customer.');
+}
+
+/** Customer account statement: opening balance, bills, payments, totals. */
+export function fetchCustomerStatement(id) {
+  return get(
+    `/admin/customers/${id}/statement`,
+    'Could not load the statement.',
+  );
+}
+
 export function fetchQuarries() {
   return get('/admin/quarries', 'Could not load quarries.');
+}
+
+export function createQuarry(body) {
+  return post('/admin/quarries', body, 'Could not create the quarry.');
+}
+
+export function removeQuarry(id) {
+  return del(`/admin/quarries/${id}`, 'Could not delete the quarry.');
 }
 
 export function fetchMaterials() {
   return get('/admin/materials', 'Could not load materials.');
 }
 
+export function createMaterial(body) {
+  return post('/admin/materials', body, 'Could not create the material.');
+}
+
+export function removeMaterial(id) {
+  return del(`/admin/materials/${id}`, 'Could not delete the material.');
+}
+
 export function fetchRates() {
   return get('/admin/rates', 'Could not load rates.');
+}
+
+export function createRate(body) {
+  return post('/admin/rates', body, 'Could not create the rate.');
+}
+
+export function removeRate(id) {
+  return del(`/admin/rates/${id}`, 'Could not delete the rate.');
 }
 
 // --- Payments & expenses -------------------------------------------------
@@ -152,6 +208,42 @@ export function fetchPayments(query = '') {
 
 export function fetchExpenses(query = '') {
   return get(`/admin/expenses${query}`, 'Could not load expenses.');
+}
+
+export function createWorkEntry(body) {
+  return post('/admin/work-entries', body, 'Could not save the work entry.');
+}
+
+export function createExpense(body) {
+  return post('/admin/expenses', body, 'Could not record the expense.');
+}
+
+export function createPayment(body) {
+  return post('/admin/payments', body, 'Could not record the payment.');
+}
+
+export function removePayment(id) {
+  return del(`/admin/payments/${id}`, 'Could not delete the payment.');
+}
+
+export function removePayments(ids) {
+  return post(
+    '/admin/payments/bulk-delete',
+    { ids },
+    'Could not delete selected payments.',
+  );
+}
+
+export function removeExpense(id) {
+  return del(`/admin/expenses/${id}`, 'Could not delete the expense.');
+}
+
+export function removeExpenses(ids) {
+  return post(
+    '/admin/expenses/bulk-delete',
+    { ids },
+    'Could not delete selected expenses.',
+  );
 }
 
 // --- Formatting helpers --------------------------------------------------

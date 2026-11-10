@@ -36,6 +36,14 @@ export default class DashboardService extends BaseService {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
+    // $dateToString keys must follow the server-local calendar used by
+    // the zero-fill below; without this, entries recorded between local
+    // midnight and UTC midnight bucketed to the previous day.
+    const offsetMinutes = -new Date().getTimezoneOffset();
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const absMinutes = Math.abs(offsetMinutes);
+    const timezone = `${sign}${String(Math.floor(absMinutes / 60)).padStart(2, '0')}:${String(absMinutes % 60).padStart(2, '0')}`;
+
     const [
       vehicleTotal,
       vehicleActive,
@@ -80,7 +88,7 @@ export default class DashboardService extends BaseService {
         { $match: { date: { $gte: from, $lte: to } } },
         {
           $group: {
-            _id: { $dateToString: { format: '%Y-%m-%d', date: '$date' } },
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$date', timezone } },
             income: { $sum: '$billedAmount' },
             entryExpense: {
               $sum: { $add: ['$dieselAmount', '$otherExpense'] },
@@ -94,7 +102,7 @@ export default class DashboardService extends BaseService {
         { $match: { date: { $gte: from, $lte: to } } },
         {
           $group: {
-            _id: { $dateToString: { format: '%Y-%m-%d', date: '$date' } },
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$date', timezone } },
             expense: { $sum: '$amount' },
           },
         },
@@ -136,6 +144,18 @@ export default class DashboardService extends BaseService {
       };
       existing.expense += row.expense;
       byDate.set(row._id, existing);
+    }
+    // Zero-fill every calendar day in the window so the dashboard
+    // always renders a complete series (idle days show 0, not gaps).
+    for (
+      let day = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+      day <= to;
+      day.setDate(day.getDate() + 1)
+    ) {
+      const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+      if (!byDate.has(key)) {
+        byDate.set(key, { date: key, income: 0, expense: 0, entries: 0 });
+      }
     }
     const series = [...byDate.values()].sort((a, b) =>
       a.date.localeCompare(b.date),

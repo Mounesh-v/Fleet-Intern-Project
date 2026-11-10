@@ -10,21 +10,24 @@ import {
   Platform,
   StatusBar,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { Field, PrimaryButton } from '../../../components/UI';
 import { useAuth } from '../context/authContext';
 
 const COLORS = {
-  background: '#F7F2E8',
-  surface: '#FFFDFA',
-  primary: '#182535',
-  accent: '#F5B923',
-  secondary: '#6B7077',
-  border: '#E6DED0',
+  navy: '#182A3D',
+  yellow: '#F5B923',
+  beige: '#F5F1E8',
+  white: '#FFFFFF',
+  inputBorder: '#DED6C8',
+  text: '#263447',
+  textSecondary: '#778397',
+  onNavy: '#C5CDD6',
   danger: '#C43D35',
   dangerSoft: '#FBECEA',
+  dangerBorder: '#F2C9C5',
 };
 
 export default function LoginScreen() {
@@ -57,7 +60,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.navy} />
       <KeyboardAvoidingView
         style={styles.kav}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -68,15 +71,22 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
-          {/* Header */}
+          {/* Branding header */}
           <View style={styles.header}>
-            <View style={styles.topRow}>
-              <View style={styles.lockup}>
-                <View style={styles.logoMark}>
-                  <Ionicons name="navigate" size={20} color={COLORS.primary} />
-                </View>
-                <Text style={styles.lockupText}>JCB Fleet Management</Text>
+            {/* Decorative concentric circles + dotted arcs */}
+            <View pointerEvents="none" style={styles.deco}>
+              <View style={styles.decoCircleBig} />
+              <View style={styles.decoCircleDashed} />
+              <View style={styles.decoArc} />
+              <View style={styles.decoDotYellow} />
+              <View style={styles.decoDotWhite} />
+            </View>
+
+            <View style={styles.lockup}>
+              <View style={styles.logoMark}>
+                <Ionicons name="navigate" size={20} color={COLORS.navy} />
               </View>
+              <Text style={styles.lockupText}>JCB Fleet Management</Text>
             </View>
 
             <Text style={styles.title}>Welcome back</Text>
@@ -85,30 +95,32 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          {/* Form */}
+          {/* Login form card */}
           <View style={styles.sheet}>
             <View style={styles.formCard}>
-              <Field
+              <LoginField
                 label="Username"
+                icon="person-outline"
+                placeholder="Enter your username"
                 value={username}
                 onChangeText={text => {
                   setUsername(text);
                   clearError();
                 }}
-                placeholder="Enter your username"
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="next"
               />
 
-              <Field
+              <LoginField
                 label="Password"
+                icon="lock-closed-outline"
+                placeholder="Enter your password"
                 value={password}
                 onChangeText={text => {
                   setPassword(text);
                   clearError();
                 }}
-                placeholder="Enter your password"
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 onSubmitEditing={submit}
@@ -123,16 +135,21 @@ export default function LoginScreen() {
                     }
                   >
                     <Ionicons
-                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      name={
+                        showPassword ? 'eye-off-outline' : 'eye-outline'
+                      }
                       size={20}
-                      color={COLORS.secondary}
+                      color={COLORS.textSecondary}
                     />
                   </TouchableOpacity>
                 }
               />
 
               {!!error && (
-                <View style={styles.errorBox} accessibilityLiveRegion="polite">
+                <View
+                  style={styles.errorBox}
+                  accessibilityLiveRegion="polite"
+                >
                   <Ionicons
                     name="alert-circle"
                     size={18}
@@ -142,25 +159,38 @@ export default function LoginScreen() {
                 </View>
               )}
 
-              <View style={styles.buttonWrap}>
-                <PrimaryButton
-                  title={isSigningIn ? 'Signing in…' : 'Sign in'}
-                  onPress={submit}
-                  disabled={isSigningIn}
-                  style={styles.loginButton}
-                />
-                {isSigningIn && (
-                  <ActivityIndicator
-                    style={styles.spinner}
-                    color={COLORS.primary}
+              <TouchableOpacity
+                style={[styles.signInBtn, isSigningIn && styles.signInBtnBusy]}
+                onPress={submit}
+                disabled={isSigningIn}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Sign in"
+              >
+                <Text style={styles.signInText}>
+                  {isSigningIn ? 'Signing in…' : 'Sign in'}
+                </Text>
+                {isSigningIn ? (
+                  <ActivityIndicator size="small" color={COLORS.navy} />
+                ) : (
+                  <Ionicons
+                    name="arrow-forward"
+                    size={18}
+                    color={COLORS.navy}
                   />
                 )}
-              </View>
-
-              <Text style={styles.hint}>
-                Contact your administrator if you forgot your password.
-              </Text>
+              </TouchableOpacity>
             </View>
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={14}
+              color={COLORS.textSecondary}
+            />
+            <Text style={styles.footerText}>Secure, encrypted sign-in</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -168,83 +198,191 @@ export default function LoginScreen() {
   );
 }
 
+/** Labelled rounded input with a leading icon and optional trailing slot. */
+function LoginField({ label, icon, right, ...props }) {
+  return (
+    <View style={styles.fieldWrap}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={styles.inputBox}>
+        <Ionicons
+          name={icon}
+          size={18}
+          color={COLORS.textSecondary}
+          style={styles.inputIcon}
+        />
+        <TextInput
+          placeholderTextColor={COLORS.textSecondary}
+          style={styles.input}
+          {...props}
+        />
+        {right}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.navy,
   },
   kav: {
     flex: 1,
   },
   content: {
     flexGrow: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.beige,
   },
 
+  /* ---- Branding header ---- */
   header: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.navy,
     paddingHorizontal: 22,
-    paddingTop: 14,
-    paddingBottom: 72,
+    paddingTop: 18,
+    paddingBottom: 76,
+    overflow: 'hidden',
   },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  deco: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
+  decoCircleBig: {
+    position: 'absolute',
+    top: -72,
+    right: -64,
+    width: 210,
+    height: 210,
+    borderRadius: 105,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.07)',
+  },
+  decoCircleDashed: {
+    position: 'absolute',
+    top: -24,
+    right: -18,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+  decoArc: {
+    position: 'absolute',
+    bottom: -56,
+    left: -46,
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.10)',
+  },
+  decoDotYellow: {
+    position: 'absolute',
+    top: 104,
+    right: 118,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(245,185,35,0.9)',
+  },
+  decoDotWhite: {
+    position: 'absolute',
+    top: 136,
+    right: 44,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+
   lockup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    marginTop: 4,
   },
   logoMark: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    backgroundColor: COLORS.accent,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: COLORS.yellow,
     alignItems: 'center',
     justifyContent: 'center',
   },
   lockupText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: COLORS.white,
+    fontSize: 16.5,
     fontWeight: '800',
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
   title: {
-    marginTop: 40,
-    fontSize: 30,
-    lineHeight: 36,
+    marginTop: 36,
+    fontSize: 33,
+    lineHeight: 40,
     fontWeight: '800',
-    letterSpacing: -0.8,
-    color: '#FFFFFF',
+    letterSpacing: -0.9,
+    color: COLORS.white,
   },
   subtitle: {
     marginTop: 8,
-    fontSize: 14,
-    color: '#C5CDD6',
-    lineHeight: 20,
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: COLORS.onNavy,
   },
 
+  /* ---- Form card ---- */
   sheet: {
-    flexGrow: 1,
     paddingHorizontal: 20,
-    paddingBottom: 24,
-    backgroundColor: COLORS.background,
+    paddingBottom: 12,
   },
   formCard: {
     marginTop: -40,
-    padding: 20,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
+    padding: 22,
+    borderRadius: 26,
+    backgroundColor: COLORS.white,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: COLORS.primary,
-    shadowOpacity: 0.1,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    borderColor: '#EFE9DE',
+    shadowColor: COLORS.navy,
+    shadowOpacity: 0.14,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 5,
   },
+
+  fieldWrap: {
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    color: COLORS.text,
+    fontSize: 13.5,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  inputBox: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.inputBorder,
+    borderRadius: 14,
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 14,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    color: COLORS.text,
+    padding: 0,
+  },
+
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -253,7 +391,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: COLORS.dangerSoft,
     borderWidth: 1,
-    borderColor: '#F2C9C5',
+    borderColor: COLORS.dangerBorder,
     marginBottom: 14,
   },
   errorText: {
@@ -262,26 +400,43 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  loginButton: {
-    backgroundColor: COLORS.accent,
-    minHeight: 50,
+
+  signInBtn: {
+    minHeight: 54,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    backgroundColor: COLORS.yellow,
+    shadowColor: COLORS.navy,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
   },
-  buttonWrap: {
-    position: 'relative',
+  signInBtnBusy: {
+    opacity: 0.75,
   },
-  spinner: {
-    position: 'absolute',
-    right: 16,
-    top: 0,
-    bottom: 0,
+  signInText: {
+    color: COLORS.navy,
+    fontSize: 16,
+    fontWeight: '800',
   },
-  hint: {
-    marginTop: 16,
-    textAlign: 'center',
-    fontSize: 12,
-    color: COLORS.secondary,
-    lineHeight: 18,
+
+  /* ---- Footer ---- */
+  footer: {
+    marginTop: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+  },
+  footerText: {
+    color: COLORS.textSecondary,
+    fontSize: 12.5,
+    fontWeight: '600',
   },
 });

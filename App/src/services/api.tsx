@@ -11,7 +11,13 @@ import { getToken, clearToken } from '../utils/tokenStorage';
  *
  * Backend must be running:  cd backend && npm start  (default port 5000)
  */
-export const API_BASE_URL = 'http://10.0.2.2:5000/api';
+
+// For the Emulator
+// export const API_BASE_URL = 'http://10.0.2.2:5000/api';
+
+// For the Physical Device
+export const API_BASE_URL = 'http://192.168.0.103:5000/api';
+// export const API_BASE_URL = 'http://10.240.241.165:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -62,7 +68,10 @@ api.interceptors.response.use(
 /**
  * Extracts the API error message from the standard envelope.
  */
-export function getApiErrorMessage(error, fallback = 'Something went wrong. Please try again.') {
+export function getApiErrorMessage(
+  error,
+  fallback = 'Something went wrong. Please try again.',
+) {
   return error?.response?.data?.message || error?.message || fallback;
 }
 

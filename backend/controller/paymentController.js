@@ -29,4 +29,10 @@ export default class PaymentController {
     const result = await PaymentService.remove(req.params.id);
     return ApiResponse.success(res, 'Payment deleted successfully', result);
   });
+
+  /** POST /api/admin/payments/bulk-delete */
+  removeMany = catchAsync(async (req, res) => {
+    const result = await PaymentService.removeMany(req.body?.ids);
+    return ApiResponse.success(res, 'Payments deleted successfully', result);
+  });
 }

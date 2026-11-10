@@ -47,11 +47,18 @@ export function Field({
   autoCorrect = undefined,
   onSubmitEditing = undefined,
   returnKeyType = undefined,
+  borderColor = undefined,
 }) {
   return (
     <View style={styles.fieldWrap}>
       {!!label && <Text style={styles.label}>{label}</Text>}
-      <View style={[styles.field, multiline && styles.multilineField]}>
+      <View
+        style={[
+          styles.field,
+          multiline && styles.multilineField,
+          borderColor ? { borderColor } : null,
+        ]}
+      >
         <TextInput
           value={value}
           onChangeText={onChangeText}

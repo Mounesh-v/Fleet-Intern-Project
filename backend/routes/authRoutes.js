@@ -2,6 +2,7 @@ import { Router } from 'express';
 import AuthController from '../controller/authController.js';
 import AuthMiddleware from '../middleware/authMiddleware.js';
 import RoleMiddleware from '../middleware/roleMiddleware.js';
+import RateLimitMiddleware from '../middleware/rateLimitMiddleware.js';
 
 /**
  * Auth routes — wires HTTP paths to controller methods.
@@ -13,8 +14,8 @@ import RoleMiddleware from '../middleware/roleMiddleware.js';
 const router = Router();
 const controller = new AuthController();
 
-// Public
-router.post('/login', controller.login);
+// Public — rate-limited against brute-force attempts.
+router.post('/login', RateLimitMiddleware.login(), controller.login);
 
 // Authenticated (any active role)
 router.get('/me', AuthMiddleware.authenticate, controller.me);

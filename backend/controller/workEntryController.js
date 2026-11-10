@@ -43,4 +43,16 @@ export default class WorkEntryController {
       entry,
     });
   });
+
+  /** DELETE /api/admin/work-entries/:id */
+  remove = catchAsync(async (req, res) => {
+    const result = await WorkEntryService.remove(req.params.id);
+    return ApiResponse.success(res, 'Work entry deleted successfully', result);
+  });
+
+  /** POST /api/admin/work-entries/bulk-delete */
+  removeMany = catchAsync(async (req, res) => {
+    const result = await WorkEntryService.removeMany(req.body?.ids);
+    return ApiResponse.success(res, 'Work entries deleted successfully', result);
+  });
 }

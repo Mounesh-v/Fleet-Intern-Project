@@ -49,4 +49,18 @@ export default class PaymentService extends BaseService {
     if (!payment) throw new AppError('Payment not found', 404);
     return { deleted: true, id };
   }
+
+  /** Bulk delete for the finance list. */
+  static async removeMany(ids) {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('No payments selected', 400);
+    }
+    const valid = ids.filter(
+      id => typeof id === 'string' && /^[a-f0-9]{24}$/i.test(id),
+    );
+    if (!valid.length) throw new AppError('No valid payment ids', 400);
+    const PaymentModel = Payment.getModel();
+    const result = await PaymentModel.deleteMany({ _id: { $in: valid } });
+    return { deleted: result.deletedCount || 0 };
+  }
 }

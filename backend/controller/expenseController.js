@@ -29,4 +29,10 @@ export default class ExpenseController {
     const result = await ExpenseService.remove(req.params.id);
     return ApiResponse.success(res, 'Expense deleted successfully', result);
   });
+
+  /** POST /api/admin/expenses/bulk-delete */
+  removeMany = catchAsync(async (req, res) => {
+    const result = await ExpenseService.removeMany(req.body?.ids);
+    return ApiResponse.success(res, 'Expenses deleted successfully', result);
+  });
 }

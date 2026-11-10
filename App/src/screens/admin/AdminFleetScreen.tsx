@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,13 @@ import {
   TouchableOpacity,
   Modal,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
+  TextInput,
+  Animated,
+  Easing,
+  Dimensions,
+  PanResponder,
 } from 'react-native';
 import {
   Screen,
@@ -17,10 +21,10 @@ import {
   Field,
   PrimaryButton,
   Badge,
-  SectionTitle,
   EmptyState,
   Loading,
 } from '../../components/UI';
+import { useCustomAlert } from '../../components/CustomAlert';
 import { C, S, R, T } from '../../themeCompat';
 import {
   fetchVehicles,
@@ -39,18 +43,25 @@ import {
   typeLabel,
   entryQuantity,
 } from '../../services/adminService';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const VEHICLE_TYPES = ['JCB', 'TIPPER', 'TATA_ACE'];
+const SCREEN_H = Dimensions.get('window').height;
 
 /**
- * AdminFleetScreen — vehicles and drivers master data.
+ * AdminFleetScreen — vehicles master data (Vehicles tab) and the driver
+ * management list (pushed from More → Drivers with view=drivers).
  *
- * Drivers tab: tap a driver to open their details — view profile,
- * assign/change the vehicle they drive, and manage the admin-created
- * login (drivers cannot sign up anywhere; backend has no register route).
+ * The Vehicles/Drivers segment was removed at the user's request: the
+ * tab stays fixed to the vehicles view, while the drivers view renders
+ * when the screen is pushed with { view: 'drivers' } — list, details,
+ * vehicle assignment and admin logins all work from there.
  */
-export default function AdminFleetScreen() {
-  const [tab, setTab] = useState('vehicles');
+export default function AdminFleetScreen({ route, navigation }) {
+  const insets = useSafeAreaInsets();
+  const isDriversView = route?.params?.view === 'drivers';
+  const [tab] = useState(isDriversView ? 'drivers' : 'vehicles');
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -60,6 +71,8 @@ export default function AdminFleetScreen() {
   const [loginModal, setLoginModal] = useState(null);
   const [detailId, setDetailId] = useState(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const { alert, alertNode } = useCustomAlert();
 
   const load = useCallback(async () => {
     try {
@@ -95,48 +108,78 @@ export default function AdminFleetScreen() {
   const detailDriver =
     drivers.find(d => String(d._id) === String(detailId)) || null;
 
+  // Assigned driver per vehicle — the assignment lives on the driver
+  // record (driver.vehicle), so build the reverse map from the drivers
+  // list that already loads with the screen.
+  const driverByVehicle = {};
+  drivers.forEach(d => {
+    if (d.vehicle) {
+      driverByVehicle[String(d.vehicle._id || d.vehicle)] = d.name;
+    }
+  });
+
+  // Client-side search over registration number, type, brand, model
+  // and the assigned driver's name.
+  const query = search.trim().toLowerCase();
+  const filteredVehicles = query
+    ? vehicles.filter(vehicle =>
+        [
+          vehicle.registrationNo,
+          vehicle.type,
+          vehicle.brand,
+          vehicle.model,
+          driverByVehicle[String(vehicle._id)],
+        ].some(field => String(field || '').toLowerCase().includes(query)),
+      )
+    : vehicles;
+
+  // Drivers view search over name, employee ID and phone.
+  const filteredDrivers = query
+    ? drivers.filter(driver =>
+        [driver.name, driver.employeeId, driver.phone].some(field =>
+          String(field || '').toLowerCase().includes(query),
+        ),
+      )
+    : drivers;
+
   const confirmDeleteVehicle = vehicle => {
-    Alert.alert(
+    alert(
       'Delete vehicle',
       `Remove ${vehicle.registrationNo} permanently?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeVehicle(vehicle._id);
-              load();
-            } catch (err) {
-              Alert.alert('Error', err.message);
-            }
-          },
+      {
+        type: 'error',
+        cancel: true,
+        confirmText: 'Delete',
+        onConfirm: async () => {
+          try {
+            await removeVehicle(vehicle._id);
+            load();
+          } catch (err) {
+            alert('Error', err.message, { type: 'error' });
+          }
         },
-      ],
+      },
     );
   };
 
   const confirmDeleteDriver = driver => {
-    Alert.alert(
+    alert(
       'Delete driver',
       `Remove ${driver.name} permanently? The login account (if any) stays but stops matching a driver.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeDriver(driver._id);
-              if (String(detailId) === String(driver._id)) setDetailId(null);
-              load();
-            } catch (err) {
-              Alert.alert('Error', err.message);
-            }
-          },
+      {
+        type: 'error',
+        cancel: true,
+        confirmText: 'Delete',
+        onConfirm: async () => {
+          try {
+            await removeDriver(driver._id);
+            if (String(detailId) === String(driver._id)) setDetailId(null);
+            load();
+          } catch (err) {
+            alert('Error', err.message, { type: 'error' });
+          }
         },
-      ],
+      },
     );
   };
 
@@ -146,75 +189,157 @@ export default function AdminFleetScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>MASTER DATA</Text>
-          <Text style={styles.title}>Fleet</Text>
-          <Text style={styles.subtitle}>
-            Assign vehicles from a driver's details. Logins are created by you only.
-          </Text>
-        </View>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View
+          style={[
+            styles.header,
+            isDriversView && { marginTop: insets.top + S.md },
+          ]}
+        >
+          <View style={styles.headerContent}>
+            {isDriversView ? (
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => navigation.goBack()}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+              >
+                <Ionicons name="chevron-back" size={22} color="#182F50" />
+              </TouchableOpacity>
+            ) : null}
+            <View style={styles.headerText}>
+              <Text style={styles.headerTitle}>
+                {isDriversView ? 'Drivers' : 'Vehicles'}
+              </Text>
+              <Text style={styles.headerSubtitle}>
+                {isDriversView
+                  ? query
+                    ? `${filteredDrivers.length} of ${drivers.length} drivers match`
+                    : `${drivers.length} drivers in total`
+                  : query
+                    ? `${filteredVehicles.length} of ${vehicles.length} vehicles match`
+                    : `${vehicles.length} vehicles in total`}
+              </Text>
+            </View>
 
-        {/* Segmented control */}
-        <View style={styles.segment}>
-          {['vehicles', 'drivers'].map(key => (
             <TouchableOpacity
-              key={key}
-              style={[styles.segmentItem, tab === key && styles.segmentItemActive]}
-              onPress={() => setTab(key)}
+              style={styles.addButton}
+              onPress={() => setModalOpen(true)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.segmentText, tab === key && styles.segmentTextActive]}>
-                {key === 'vehicles' ? `Vehicles (${vehicles.length})` : `Drivers (${drivers.length})`}
-              </Text>
+              <Ionicons name="add" size={19} color="#182F50" />
+              <Text style={styles.addButtonText}>Add</Text>
             </TouchableOpacity>
-          ))}
+          </View>
         </View>
 
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search-outline" size={19} color="#85858A" />
+
+          <TextInput
+            style={styles.searchInput}
+            placeholder={
+              isDriversView ? 'Search drivers...' : 'Search vehicles...'
+            }
+            placeholderTextColor="#85858A"
+            value={search}
+            onChangeText={setSearch}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            accessibilityLabel={
+              isDriversView ? 'Search drivers' : 'Search vehicles'
+            }
+          />
+
+          {search.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearch('')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Clear search"
+            >
+              <Ionicons name="close-circle" size={18} color="#85858A" />
+            </TouchableOpacity>
+          )}
+        </View>
         {error ? (
           <Card style={styles.errorCard}>
             <Text style={styles.errorText}>{error}</Text>
           </Card>
         ) : null}
 
-        <SectionTitle
-          title={tab === 'vehicles' ? 'Vehicles' : 'Drivers'}
-          action="+ Add"
-          onAction={() => setModalOpen(true)}
-        />
-
         {tab === 'vehicles' ? (
-          vehicles.length === 0 ? (
+          filteredVehicles.length === 0 ? (
             <Card>
-              <EmptyState title="No vehicles" subtitle="Tap + Add to register the first vehicle." />
+              <EmptyState
+                title={query ? 'No matching vehicles' : 'No vehicles'}
+                subtitle={
+                  query
+                    ? `Nothing matches "${search.trim()}". Try a registration number, type or brand.`
+                    : 'Tap + Add to register the first vehicle.'
+                }
+              />
             </Card>
           ) : (
-            vehicles.map(vehicle => (
-              <Card key={vehicle._id} style={styles.row}>
-                <TouchableOpacity
-                  style={styles.rowBody}
-                  onLongPress={() => confirmDeleteVehicle(vehicle)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowMain}>
-                    <Text style={styles.rowTitle}>{vehicle.registrationNo}</Text>
-                    <Text style={styles.rowSub}>
-                      {vehicle.type}
-                      {vehicle.brand ? ` · ${vehicle.brand}` : ''}
-                      {vehicle.model ? ` ${vehicle.model}` : ''}
-                    </Text>
-                  </View>
-                  <StatusBadge status={vehicle.status} />
-                </TouchableOpacity>
-              </Card>
-            ))
+            filteredVehicles.map(vehicle => (
+                <Card key={vehicle._id} style={styles.row}>
+                  <TouchableOpacity
+                    style={styles.rowBody}
+                    onLongPress={() => confirmDeleteVehicle(vehicle)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowMain}>
+                      <Text style={styles.rowTitle}>
+                        {vehicle.registrationNo}
+                      </Text>
+                      <Text style={styles.rowSub}>
+                        {vehicle.type}
+                        {vehicle.brand ? ` · ${vehicle.brand}` : ''}
+                        {vehicle.model ? ` ${vehicle.model}` : ''}
+                      </Text>
+                      <View style={styles.rowDriverLine}>
+                        <Ionicons
+                          name="person-outline"
+                          size={13}
+                          color={C.textMuted}
+                        />
+                        <Text
+                          style={[
+                            styles.rowDriver,
+                            driverByVehicle[String(vehicle._id)]
+                              ? null
+                              : styles.rowDriverNone,
+                          ]}
+                        >
+                          {driverByVehicle[String(vehicle._id)] ||
+                            'No driver assigned'}
+                        </Text>
+                      </View>
+                    </View>
+                    <StatusBadge status={vehicle.status} />
+                  </TouchableOpacity>
+                </Card>
+              ))
           )
-        ) : drivers.length === 0 ? (
+        ) : filteredDrivers.length === 0 ? (
           <Card>
-            <EmptyState title="No drivers" subtitle="Tap + Add to register the first driver." />
+            <EmptyState
+              title={query ? 'No matching drivers' : 'No drivers'}
+              subtitle={
+                query
+                  ? `Nothing matches "${search.trim()}". Try a name or phone number.`
+                  : 'Tap + Add to register the first driver.'
+              }
+            />
           </Card>
         ) : (
-          drivers.map(driver => {
+          filteredDrivers.map(driver => {
             const account = accountFor(driver);
             return (
               <Card key={driver._id} style={styles.row}>
@@ -237,10 +362,17 @@ export default function AdminFleetScreen() {
                       ]}
                     >
                       {driver.vehicle
-                        ? `${driver.vehicle.registrationNo} · ${typeLabel(driver.vehicle.type)}`
+                        ? `${driver.vehicle.registrationNo} · ${typeLabel(
+                            driver.vehicle.type,
+                          )}`
                         : 'No vehicle — tap to assign'}
                     </Text>
-                    <Text style={[styles.loginLine, account ? styles.loginYes : styles.loginNo]}>
+                    <Text
+                      style={[
+                        styles.loginLine,
+                        account ? styles.loginYes : styles.loginNo,
+                      ]}
+                    >
                       {account ? `Login: ${account.username}` : 'No login yet'}
                     </Text>
                   </View>
@@ -252,7 +384,9 @@ export default function AdminFleetScreen() {
         )}
 
         <Text style={styles.hint}>
-          Tap a driver for details &amp; vehicle assignment · long-press to delete
+          {isDriversView
+            ? 'Tap a driver for details — long-press to delete'
+            : 'Long-press a vehicle to delete'}
         </Text>
       </ScrollView>
 
@@ -296,6 +430,7 @@ export default function AdminFleetScreen() {
           load();
         }}
       />
+      {alertNode}
     </Screen>
   );
 }
@@ -351,13 +486,17 @@ function DriverDetailModal({ driver, account, onClose, onAssign, onLogin }) {
 
           <InfoLine label="License" value={driver.licenseNo} />
           <InfoLine label="Joined" value={formatDay(driver.joinedAt)} />
-          {driver.notes ? <InfoLine label="Notes" value={driver.notes} /> : null}
+          {driver.notes ? (
+            <InfoLine label="Notes" value={driver.notes} />
+          ) : null}
 
           <View style={styles.divider} />
           <Text style={styles.detailSection}>ASSIGNED VEHICLE</Text>
           {driver.vehicle ? (
             <View style={styles.infoBox}>
-              <Text style={styles.infoBoxTitle}>{driver.vehicle.registrationNo}</Text>
+              <Text style={styles.infoBoxTitle}>
+                {driver.vehicle.registrationNo}
+              </Text>
               <Text style={styles.infoBoxMeta}>
                 {typeLabel(driver.vehicle.type)}
                 {driver.vehicle.brand ? ` · ${driver.vehicle.brand}` : ''}
@@ -404,7 +543,9 @@ function DriverDetailModal({ driver, account, onClose, onAssign, onLogin }) {
               <View style={styles.btnWrap}>
                 <PrimaryButton
                   title="Create login"
-                  onPress={() => onLogin({ mode: 'create', driver, account: null })}
+                  onPress={() =>
+                    onLogin({ mode: 'create', driver, account: null })
+                  }
                 />
               </View>
             </>
@@ -429,12 +570,18 @@ function DriverDetailModal({ driver, account, onClose, onAssign, onLogin }) {
                     {entry.material?.name ? ` · ${entry.material.name}` : ''}
                   </Text>
                 </View>
-                <Text style={styles.entryAmount}>{formatMoney(entry.billedAmount)}</Text>
+                <Text style={styles.entryAmount}>
+                  {formatMoney(entry.billedAmount)}
+                </Text>
               </View>
             ))
           )}
 
-          <TouchableOpacity style={styles.cancelBtn} onPress={onClose} hitSlop={8}>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={onClose}
+            hitSlop={8}
+          >
             <Text style={styles.cancelText}>Close</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -459,6 +606,7 @@ function InfoLine({ label, value }) {
  */
 function VehiclePickerModal({ driver, vehicles, onClose, onAssigned }) {
   const [busy, setBusy] = useState(false);
+  const { alert, alertNode } = useCustomAlert();
   const currentId = driver.vehicle ? String(driver.vehicle._id) : null;
 
   const assign = async vehicleId => {
@@ -468,12 +616,13 @@ function VehiclePickerModal({ driver, vehicles, onClose, onAssigned }) {
       await assignDriverVehicle(driver._id, vehicleId);
       onAssigned();
     } catch (err) {
-      Alert.alert('Error', err.message);
+      alert('Error', err.message, { type: 'error' });
       setBusy(false);
     }
   };
 
   return (
+    <>
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.modalShell}
@@ -493,7 +642,9 @@ function VehiclePickerModal({ driver, vehicles, onClose, onAssigned }) {
               disabled={busy}
               activeOpacity={0.75}
             >
-              <Text style={styles.pickRemoveText}>Remove current assignment</Text>
+              <Text style={styles.pickRemoveText}>
+                Remove current assignment
+              </Text>
             </TouchableOpacity>
           ) : null}
 
@@ -521,7 +672,9 @@ function VehiclePickerModal({ driver, vehicles, onClose, onAssigned }) {
                       {' · '}
                       {vehicle.status || '—'}
                     </Text>
-                    {isCurrent ? <Text style={styles.pickCurrentTag}>CURRENT</Text> : null}
+                    {isCurrent ? (
+                      <Text style={styles.pickCurrentTag}>CURRENT</Text>
+                    ) : null}
                   </View>
                   <StatusBadge status={vehicle.status} />
                 </TouchableOpacity>
@@ -529,12 +682,18 @@ function VehiclePickerModal({ driver, vehicles, onClose, onAssigned }) {
             })
           )}
 
-          <TouchableOpacity style={styles.cancelBtn} onPress={onClose} hitSlop={8}>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={onClose}
+            hitSlop={8}
+          >
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
+    {alertNode}
+    </>
   );
 }
 
@@ -551,6 +710,16 @@ function AddModal({ open, tab, onClose, onSaved }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Internal visibility keeps the Modal mounted during the exit animation
+  // (parent `open` flips false immediately on close).
+  const [visible, setVisible] = useState(false);
+  // Natural height of the form content, measured on layout.
+  const [contentH, setContentH] = useState(0);
+  const backdrop = useRef(new Animated.Value(0)).current;
+  const heightAnim = useRef(new Animated.Value(0)).current;
+  const enteredRef = useRef(false);
+  const dragStartH = useRef(0);
+  const heightRef = useRef(0);
 
   useEffect(() => {
     if (open) {
@@ -565,8 +734,118 @@ function AddModal({ open, tab, onClose, onSaved }) {
       setPassword('');
       setError('');
       setBusy(false);
+      enteredRef.current = false;
+      setVisible(true);
+      backdrop.setValue(0);
+      Animated.timing(backdrop, {
+        toValue: 1,
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+      return;
     }
+    // Closing: collapse the sheet + fade the backdrop before unmounting.
+    Animated.parallel([
+      Animated.timing(heightAnim, {
+        toValue: 0,
+        duration: 220,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: false,
+      }),
+      Animated.timing(backdrop, {
+        toValue: 0,
+        duration: 220,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) setVisible(false);
+    });
+  }, [open, backdrop, heightAnim]);
+
+  // Entrance: grow the sheet up from the bottom once content is measured.
+  useEffect(() => {
+    if (open && visible && contentH > 0 && !enteredRef.current) {
+      enteredRef.current = true;
+      const target = Math.min(contentH, Math.round(SCREEN_H * 0.9));
+      heightRef.current = 0;
+      heightAnim.setValue(0);
+      Animated.timing(heightAnim, {
+        toValue: target,
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (finished) heightRef.current = target;
+      });
+    }
+  }, [open, visible, contentH, heightAnim]);
+
+  // Safety net: if onLayout never fires, open at a sensible default height.
+  useEffect(() => {
+    if (!open) return undefined;
+    const timer = setTimeout(() => {
+      setContentH(h => (h > 0 ? h : Math.round(SCREEN_H * 0.55)));
+    }, 400);
+    return () => clearTimeout(timer);
   }, [open]);
+
+  const MAX_H = Math.round(SCREEN_H * 0.9);
+  const MIN_H = contentH > 0 ? Math.min(contentH, MAX_H) : 0;
+
+  // Swipe the grabber up/down to resize the sheet freely between MIN_H and
+  // MAX_H (snapping to the nearest on release); pulling down from the
+  // collapsed state dismisses the sheet.
+  const pan = PanResponder.create({
+    onStartShouldSetPanResponder: () => open,
+    onMoveShouldSetPanResponder: (_, g) => open && Math.abs(g.dy) > 4,
+    onPanResponderGrant: () => {
+      if (!open) return;
+      heightAnim.stopAnimation(h => {
+        dragStartH.current = h;
+        heightRef.current = h;
+      });
+    },
+    onPanResponderMove: (_, g) => {
+      if (!open) return;
+      const lo = Math.min(MIN_H, dragStartH.current);
+      const next = Math.max(lo, Math.min(MAX_H, dragStartH.current - g.dy));
+      heightRef.current = next;
+      heightAnim.setValue(next);
+    },
+    onPanResponderRelease: (_, g) => {
+      if (!open) return;
+      if (Math.abs(g.dy) < 4 && Math.abs(g.vy) < 0.3) return;
+      if (
+        dragStartH.current <= MIN_H + 1 &&
+        g.dy > 0 &&
+        (g.dy > 70 || g.vy > 0.8)
+      ) {
+        onClose();
+        return;
+      }
+      const h = heightRef.current;
+      const target = Math.abs(h - MIN_H) <= Math.abs(h - MAX_H) ? MIN_H : MAX_H;
+      Animated.spring(heightAnim, {
+        toValue: target,
+        useNativeDriver: false,
+        bounciness: 5,
+        speed: 16,
+      }).start(({ finished }) => {
+        if (finished) heightRef.current = target;
+      });
+    },
+    onPanResponderTerminate: () => {
+      if (!open) return;
+      const h = heightRef.current;
+      const target = Math.abs(h - MIN_H) <= Math.abs(h - MAX_H) ? MIN_H : MAX_H;
+      Animated.spring(heightAnim, {
+        toValue: target,
+        useNativeDriver: false,
+      }).start();
+    },
+  });
 
   const submit = async () => {
     if (busy) return;
@@ -624,17 +903,39 @@ function AddModal({ open, tab, onClose, onSaved }) {
   };
 
   return (
-    <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={styles.modalShell}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.modalCard}>
-          <Text style={styles.modalTitle}>
-            {tab === 'vehicles' ? 'Add vehicle' : 'Add driver'}
-          </Text>
-
-          {tab === 'vehicles' ? (
+    <Modal
+      visible={visible}
+      animationType="none"
+      transparent
+      onRequestClose={onClose}
+    >
+      <Animated.View style={[styles.modalShell, { opacity: backdrop }]}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={onClose}
+          accessibilityLabel="Close"
+        />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.sheetLayer}
+        >
+          <Animated.View style={[styles.sheet, { height: heightAnim }]}>
+            <View style={styles.grabber} {...pan.panHandlers}>
+              <View style={styles.grabberBar} />
+              <Text style={styles.modalTitle}>
+                {tab === 'vehicles' ? 'Add vehicle' : 'Add driver'}
+              </Text>
+            </View>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View
+                style={styles.sheetBody}
+                onLayout={e => setContentH(e.nativeEvent.layout.height)}
+              >
+              {tab === 'vehicles' ? (
             <>
               <Field
                 label="Registration number"
@@ -648,22 +949,45 @@ function AddModal({ open, tab, onClose, onSaved }) {
                 {VEHICLE_TYPES.map(t => (
                   <TouchableOpacity
                     key={t}
-                    style={[styles.typeChip, type === t && styles.typeChipActive]}
+                    style={[
+                      styles.typeChip,
+                      type === t && styles.typeChipActive,
+                    ]}
                     onPress={() => setType(t)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.typeChipText, type === t && styles.typeChipTextActive]}>
+                    <Text
+                      style={[
+                        styles.typeChipText,
+                        type === t && styles.typeChipTextActive,
+                      ]}
+                    >
                       {t === 'TATA_ACE' ? 'Ace' : t}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-              <Field label="Brand" value={brand} onChangeText={setBrand} placeholder="JCB / Tata" />
-              <Field label="Model" value={model} onChangeText={setModel} placeholder="3DX" />
+              <Field
+                label="Brand"
+                value={brand}
+                onChangeText={setBrand}
+                placeholder="JCB / Tata"
+              />
+              <Field
+                label="Model"
+                value={model}
+                onChangeText={setModel}
+                placeholder="3DX"
+              />
             </>
           ) : (
             <>
-              <Field label="Name" value={name} onChangeText={setName} placeholder="Full name" />
+              <Field
+                label="Name"
+                value={name}
+                onChangeText={setName}
+                placeholder="Full name"
+              />
               <Field
                 label="Phone"
                 value={phone}
@@ -695,7 +1019,11 @@ function AddModal({ open, tab, onClose, onSaved }) {
                 label="Password"
                 value={password}
                 onChangeText={setPassword}
-                placeholder={username.trim() ? 'Min 6 characters' : 'Required with username'}
+                placeholder={
+                  username.trim()
+                    ? 'Min 6 characters'
+                    : 'Required with username'
+                }
                 secureTextEntry
                 autoCapitalize="none"
               />
@@ -709,11 +1037,18 @@ function AddModal({ open, tab, onClose, onSaved }) {
             onPress={submit}
             disabled={busy}
           />
-          <TouchableOpacity style={styles.cancelBtn} onPress={onClose} hitSlop={8}>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={onClose}
+            hitSlop={8}
+          >
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </Animated.View>
     </Modal>
   );
 }
@@ -769,8 +1104,14 @@ function LoginModal({ state, onClose, onSaved }) {
           setBusy(false);
           return;
         }
-        if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
-          setError('Password needs an uppercase letter, a lowercase letter, and a number.');
+        if (
+          !/[A-Z]/.test(password) ||
+          !/[a-z]/.test(password) ||
+          !/\d/.test(password)
+        ) {
+          setError(
+            'Password needs an uppercase letter, a lowercase letter, and a number.',
+          );
           setBusy(false);
           return;
         }
@@ -784,7 +1125,12 @@ function LoginModal({ state, onClose, onSaved }) {
   };
 
   return (
-    <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal
+      visible={open}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
       <KeyboardAvoidingView
         style={styles.modalShell}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -795,8 +1141,12 @@ function LoginModal({ state, onClose, onSaved }) {
           </Text>
           <Text style={styles.sectionNote}>
             {mode === 'create'
-              ? `Credentials for ${driver?.name || 'driver'} — they can only sign in with these.`
-              : `New password for ${account?.username || 'account'} — existing sessions will be signed out.`}
+              ? `Credentials for ${
+                  driver?.name || 'driver'
+                } — they can only sign in with these.`
+              : `New password for ${
+                  account?.username || 'account'
+                } — existing sessions will be signed out.`}
           </Text>
 
           {mode === 'create' ? (
@@ -813,7 +1163,9 @@ function LoginModal({ state, onClose, onSaved }) {
             label={mode === 'create' ? 'Password' : 'New password'}
             value={password}
             onChangeText={setPassword}
-            placeholder={mode === 'create' ? 'Min 6 characters' : 'Upper + lower + number'}
+            placeholder={
+              mode === 'create' ? 'Min 6 characters' : 'Upper + lower + number'
+            }
             secureTextEntry
             autoCapitalize="none"
           />
@@ -821,11 +1173,21 @@ function LoginModal({ state, onClose, onSaved }) {
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <PrimaryButton
-            title={busy ? 'Saving…' : mode === 'create' ? 'Create login' : 'Reset password'}
+            title={
+              busy
+                ? 'Saving…'
+                : mode === 'create'
+                ? 'Create login'
+                : 'Reset password'
+            }
             onPress={submit}
             disabled={busy}
           />
-          <TouchableOpacity style={styles.cancelBtn} onPress={onClose} hitSlop={8}>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={onClose}
+            hitSlop={8}
+          >
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -846,8 +1208,87 @@ function suggestUsername(driver) {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: S.xxl },
-  header: { marginBottom: S.lg },
-  eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: C.accentDark },
+  header: {
+    backgroundColor: '#FFFDFA',
+    marginHorizontal: -(S.lg + 50),
+    marginTop: S.xxl + 10,
+    marginBottom: 18,
+    paddingHorizontal: S.lg + 60,
+    paddingTop: 28,
+    paddingBottom: 28,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
+
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  backButton: {
+    marginRight: 6,
+    padding: 2,
+  },
+
+  headerText: {
+    flex: 1,
+  },
+
+  headerTitle: {
+    fontSize: 23,
+    fontWeight: '800',
+    color: '#182F50',
+  },
+
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#85858A',
+    marginTop: 5,
+  },
+
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5B923',
+    paddingHorizontal: 15,
+    paddingVertical: 11,
+    borderRadius: 12,
+    gap: 5,
+  },
+
+  addButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#182F50',
+  },
+
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFDFA',
+    borderWidth: 1,
+    borderColor: '#E9E0D2',
+    borderRadius: 14,
+    height: 48,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+
+  searchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 13,
+    color: '#182F50',
+    paddingVertical: 0,
+  },
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: C.accentDark,
+  },
   title: { ...T.heading, color: C.primary, marginTop: 4, letterSpacing: -0.6 },
   subtitle: { marginTop: 4, fontSize: 12, color: C.textSecondary },
   segment: {
@@ -871,6 +1312,23 @@ const styles = StyleSheet.create({
   rowMain: { flex: 1 },
   rowTitle: { fontSize: 14, fontWeight: '800', color: C.textPrimary },
   rowSub: { fontSize: 12, color: C.textSecondary, marginTop: 3 },
+  rowDriverLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 5,
+  },
+  rowDriver: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: C.primary,
+    flexShrink: 1,
+  },
+  rowDriverNone: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: C.textMuted,
+  },
   vehicleLine: { fontSize: 12, fontWeight: '700', marginTop: 5 },
   vehicleYes: { color: C.primary },
   vehicleNo: { color: C.accentDark },
@@ -884,11 +1342,45 @@ const styles = StyleSheet.create({
     marginTop: S.md,
   },
   errorCard: { borderColor: C.danger, marginBottom: S.sm },
-  errorText: { fontSize: 13, color: C.danger, fontWeight: '600', marginBottom: S.sm },
+  errorText: {
+    fontSize: 13,
+    color: C.danger,
+    fontWeight: '600',
+    marginBottom: S.sm,
+  },
   modalShell: {
     flex: 1,
     backgroundColor: 'rgba(16, 26, 37, 0.45)',
     justifyContent: 'flex-end',
+  },
+  sheetLayer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: C.surface,
+    borderTopLeftRadius: R.xl,
+    borderTopRightRadius: R.xl,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  grabber: {
+    paddingTop: S.md,
+    paddingBottom: S.sm,
+    paddingHorizontal: S.xl,
+  },
+  grabberBar: {
+    alignSelf: 'center',
+    width: 42,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#E9E0D2',
+    marginBottom: S.sm,
+  },
+  sheetBody: {
+    paddingTop: S.sm,
+    paddingHorizontal: S.xl,
+    paddingBottom: S.xxl,
   },
   modalCard: {
     backgroundColor: C.surface,
@@ -932,7 +1424,11 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 14, fontWeight: '700', color: C.textSecondary },
 
   // Driver detail modal
-  detailHead: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: S.sm },
+  detailHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: S.sm,
+  },
   detailHeadMain: { flex: 1, paddingRight: S.sm },
   detailSub: { fontSize: 12, color: C.textSecondary, marginTop: 3 },
   infoRow: {
@@ -965,7 +1461,12 @@ const styles = StyleSheet.create({
   },
   infoBoxTitle: { fontSize: 15, fontWeight: '800', color: C.primary },
   infoBoxMeta: { fontSize: 12, color: C.textSecondary, marginTop: 3 },
-  emptyNote: { fontSize: 13, color: C.textSecondary, marginBottom: S.sm, lineHeight: 18 },
+  emptyNote: {
+    fontSize: 13,
+    color: C.textSecondary,
+    marginBottom: S.sm,
+    lineHeight: 18,
+  },
   btnWrap: { marginBottom: S.md },
   entryRow: {
     flexDirection: 'row',
@@ -1001,5 +1502,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   pickRemoveRow: { borderColor: C.danger },
-  pickRemoveText: { fontSize: 13, fontWeight: '700', color: C.danger, textAlign: 'center' },
+  pickRemoveText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.danger,
+    textAlign: 'center',
+  },
 });

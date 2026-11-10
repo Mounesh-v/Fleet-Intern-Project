@@ -1,6 +1,7 @@
 import BaseService from './BaseService.js';
 import WorkEntry from '../models/WorkEntry.js';
 import Vehicle from '../models/Vehicle.js';
+import Counter from '../models/Counter.js';
 import AppError from '../utility/AppError.js';
 import FleetValidator from '../api/fleetValidation.js';
 import RateService from './RateService.js';
@@ -23,9 +24,38 @@ export default class WorkEntryService extends BaseService {
     { path: 'quarry', select: 'name location' },
   ];
 
+  /** Next bill number for an entry date: BILL-2026-0001 (per-year counter). */
+  static async #nextBillNumber(date) {
+    const year = new Date(date).getFullYear();
+    const seq = await Counter.next(`bill-${year}`);
+    return `BILL-${year}-${String(seq).padStart(4, '0')}`;
+  }
+
+  /** Assign bill numbers to legacy entries created before the field existed. */
+  static async #ensureBillNumbers() {
+    const WorkEntryModel = WorkEntry.getModel();
+    const missing = await WorkEntryModel.find({
+      $or: [{ billNumber: { $exists: false } }, { billNumber: '' }],
+    })
+      .select('date createdAt')
+      .sort({ createdAt: 1 })
+      .lean();
+    if (missing.length === 0) return;
+    for (const entry of missing) {
+      const billNumber = await WorkEntryService.#nextBillNumber(
+        entry.date || entry.createdAt,
+      );
+      await WorkEntryModel.updateOne(
+        { _id: entry._id },
+        { $set: { billNumber } },
+      );
+    }
+  }
+
   /** List entries with optional date/status/vehicle/driver filters. */
   static async list(query = {}) {
     const WorkEntryModel = WorkEntry.getModel();
+    await WorkEntryService.#ensureBillNumbers();
     const filter = {};
 
     if (query.from || query.to) {
@@ -83,6 +113,7 @@ export default class WorkEntryService extends BaseService {
     if (body.type === 'TATA_ACE') quantity = body.aceTrips;
 
     const billedAmount = Math.round(rate * quantity * 100) / 100;
+    const billNumber = await WorkEntryService.#nextBillNumber(date);
 
     const WorkEntryModel = WorkEntry.getModel();
     return WorkEntryModel.create({
@@ -99,9 +130,13 @@ export default class WorkEntryService extends BaseService {
       dieselAmount: body.dieselAmount || 0,
       dieselLitres: body.dieselLitres || 0,
       otherExpense: body.otherExpense || 0,
+      mobile: String(body.mobile || '').trim(),
+      expenseCategory: String(body.expenseCategory || '').trim(),
+      expenseDescription: String(body.expenseDescription || '').trim(),
       location: String(body.location || '').trim(),
       notes: String(body.notes || '').trim(),
       billedAmount,
+      billNumber,
       rateSnapshot: rate,
       status: 'SUBMITTED',
       verifiedBy: actorId || null,
@@ -132,6 +167,27 @@ export default class WorkEntryService extends BaseService {
     return WorkEntryModel.findById(id)
       .populate(WorkEntryService.#populate)
       .lean();
+  }
+
+  static async remove(id) {
+    const WorkEntryModel = WorkEntry.getModel();
+    const entry = await WorkEntryModel.findByIdAndDelete(id);
+    if (!entry) throw new AppError('Work entry not found', 404);
+    return { deleted: true, id };
+  }
+
+  /** Bulk delete for the admin entries list. */
+  static async removeMany(ids) {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('No entries selected', 400);
+    }
+    const valid = ids.filter(
+      id => typeof id === 'string' && /^[a-f0-9]{24}$/i.test(id),
+    );
+    if (!valid.length) throw new AppError('No valid entry ids', 400);
+    const WorkEntryModel = WorkEntry.getModel();
+    const result = await WorkEntryModel.deleteMany({ _id: { $in: valid } });
+    return { deleted: result.deletedCount || 0 };
   }
 
   static async getById(id) {

@@ -161,6 +161,15 @@ export default class FleetValidator {
     if (!FleetValidator.#isOptionalString(body?.address)) {
       errors.push('address must be a string');
     }
+    const openingBalance = body?.openingBalance;
+    if (
+      openingBalance !== undefined &&
+      openingBalance !== null &&
+      openingBalance !== '' &&
+      !Number.isFinite(Number(openingBalance))
+    ) {
+      errors.push('openingBalance must be a number');
+    }
     return errors;
   }
 

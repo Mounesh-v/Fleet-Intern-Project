@@ -90,9 +90,33 @@ class WorkEntry {
           min: [0, 'Other expense must be zero or more'],
           default: 0,
         },
+        mobile: {
+          type: String,
+          trim: true,
+          default: '',
+          maxlength: [15, 'Mobile must be at most 15 characters'],
+        },
+        expenseCategory: {
+          type: String,
+          trim: true,
+          default: '',
+          maxlength: [40, 'Expense category must be at most 40 characters'],
+        },
+        expenseDescription: {
+          type: String,
+          trim: true,
+          default: '',
+          maxlength: [200, 'Expense description must be at most 200 characters'],
+        },
         billedAmount: {
           type: Number,
           default: 0,
+        },
+        billNumber: {
+          type: String,
+          trim: true,
+          default: '',
+          maxlength: [30, 'Bill number must be at most 30 characters'],
         },
         rateSnapshot: {
           type: Number,

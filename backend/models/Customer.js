@@ -47,6 +47,10 @@ class Customer {
           enum: ['ACTIVE', 'INACTIVE'],
           default: 'ACTIVE',
         },
+        openingBalance: {
+          type: Number,
+          default: 0,
+        },
       },
       {
         timestamps: true,

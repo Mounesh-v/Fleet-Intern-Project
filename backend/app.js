@@ -11,6 +11,7 @@ import workEntryRoutes from './routes/workEntryRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import expenseRoutes from './routes/expenseRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
+import driverPortalRoutes from './routes/driverPortalRoutes.js';
 import AppError from './utility/AppError.js';
 import ApiResponse from './utility/apiResponse.js';
 import User from './models/User.js';
@@ -56,6 +57,9 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+
+// Module 3: driver self-service portal (DRIVER role only).
+app.use('/api/driver', driverPortalRoutes);
 
 // Module 2: fleet admin API (all routes admin-guarded inside each router).
 app.use('/api/admin/dashboard', dashboardRoutes);

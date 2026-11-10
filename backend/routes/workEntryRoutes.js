@@ -17,6 +17,8 @@ router.use(AuthMiddleware.authenticate, RoleMiddleware.requireAdmin);
 router.get('/', controller.list);
 router.get('/:id', controller.getById);
 router.post('/', controller.create);
+router.post('/bulk-delete', controller.removeMany);
 router.patch('/:id/status', controller.setStatus);
+router.delete('/:id', controller.remove);
 
 export default router;

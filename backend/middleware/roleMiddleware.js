@@ -33,4 +33,7 @@ export default class RoleMiddleware {
 
   /** Admin-only guard (preconfigured factory result). */
   static requireAdmin = RoleMiddleware.requireRole('ADMIN');
+
+  /** Driver-only guard (preconfigured factory result). */
+  static requireDriver = RoleMiddleware.requireRole('DRIVER');
 }

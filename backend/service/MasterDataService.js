@@ -70,6 +70,8 @@ export default class MasterDataService extends BaseService {
       doc.phone = String(body.phone || '').trim();
       doc.address = String(body.address || '').trim();
       doc.gstNo = String(body.gstNo || '').trim().toUpperCase();
+      const openingBalance = Number(body.openingBalance);
+      doc.openingBalance = Number.isFinite(openingBalance) ? openingBalance : 0;
     }
     return Model.create(doc);
   }
@@ -98,6 +100,8 @@ export default class MasterDataService extends BaseService {
       doc.phone = String(body.phone || '').trim();
       doc.address = String(body.address || '').trim();
       doc.gstNo = String(body.gstNo || '').trim().toUpperCase();
+      const openingBalance = Number(body.openingBalance);
+      doc.openingBalance = Number.isFinite(openingBalance) ? openingBalance : 0;
     }
 
     const record = await Model.findByIdAndUpdate(id, doc, {
